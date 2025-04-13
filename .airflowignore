@@ -1,0 +1,29 @@
+# Ignore patterns for Airflow DAG parsing
+
+# Ignore all Python files in the root directory
+/*.py
+
+# Ignore test files
+**/test_*.py
+**/tests/
+
+# Ignore resource files
+**/resources/
+
+# Ignore documentation files
+**/*.md
+**/*.txt
+
+# Ignore version control
+**/.git/
+**/.gitignore
+
+# Ignore Docker files
+**/docker/
+
+# Ignore any temporary files
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.DS_Store

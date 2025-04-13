@@ -1,0 +1,30 @@
+FROM apache/airflow:2.6.1
+
+USER root
+
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        default-libmysqlclient-dev \
+        libpq-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+USER airflow
+
+# Copy requirements file
+COPY requirements.txt /requirements.txt
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r /requirements.txt
+
+# Copy DAGs and plugins
+COPY dags/ ${AIRFLOW_HOME}/dags/
+COPY plugins/ ${AIRFLOW_HOME}/plugins/
+
+# Copy .airflowignore
+COPY .airflowignore ${AIRFLOW_HOME}/.airflowignore
+
+# Set environment variables
+ENV PYTHONPATH=${PYTHONPATH}:${AIRFLOW_HOME}

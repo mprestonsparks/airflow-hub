@@ -1,0 +1,17 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Copy project-specific requirements
+COPY docker/project_specific/requirements_project_analytics.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy only necessary code for this project
+COPY plugins/common /app/plugins/common
+COPY plugins/project_analytics /app/plugins/project_analytics
+
+# Set Python path to include plugins
+ENV PYTHONPATH=${PYTHONPATH}:/app
+
+# Default command
+ENTRYPOINT ["python"]
