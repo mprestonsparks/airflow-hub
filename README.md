@@ -109,5 +109,6 @@ docker-compose up -d
 5. Document connections and external dependencies
 
 ## License
-
-[Your License]
+Property of
+(c) M. Preston Sparks, 2025 
+All rights reserved. 
