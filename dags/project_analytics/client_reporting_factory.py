@@ -89,6 +89,8 @@ def create_client_dag(client_id, config):
         start_date=config['start_date'],
         tags=['analytics', 'reporting', client_id],
     )
+# Use module docstring for DAG documentation
+    dag.doc_md = __doc__
     
     # Generate reports task
     generate_reports = SnowflakeOperator(

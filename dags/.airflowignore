@@ -1,0 +1,8 @@
+# .airflowignore to exclude non-DAG files and directories
+# Ignore common non-Python files (Markdown, YAML, JSON, CSV, SQL, notebooks)
+.*\.(md|rst|sql|yaml|yml|json|csv|ipynb)$
+# Ignore resource and test directories
+^.*/resources/.*$
+^.*/tests/.*$
+# Ignore Python cache
+^.*/__pycache__/.*$
