@@ -34,45 +34,42 @@ airflow-hub/
 
 ## Getting Started
 
-### Prerequisites
+### Quickstart (Docker Compose)
 
-- Python 3.8+
-- Docker and Docker Compose (for containerized approach)
-- Access to required external systems (databases, APIs, etc.)
-
-### Installation
+Prerequisites:
+- Docker & Docker Compose installed
 
 1. Clone this repository:
-   ```
-   git clone https://github.com/your-org/airflow-hub.git
+   ```bash
+   git clone https://github.com/mprestonsparks/airflow-hub.git
    cd airflow-hub
    ```
 
-2. Install dependencies:
-   ```
-   pip install -r requirements.txt
+2. Build all images:
+   ```bash
+   docker-compose build
    ```
 
-3. Set up Airflow:
-   ```
-   export AIRFLOW_HOME=$(pwd)
-   airflow db init
-   airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com
+3. Initialize the Airflow database and create admin user:
+   ```bash
+   docker-compose run --rm airflow-init
    ```
 
 4. Start Airflow services:
+   ```bash
+   docker-compose up -d
    ```
-   airflow webserver -p 8080
-   airflow scheduler
+
+5. Verify DAGs and tests:
+   ```bash
+   docker-compose exec airflow-webserver airflow dags list
+   docker-compose exec airflow-webserver airflow dags list-import-errors
+   pytest tests/test_dag_validation.py
    ```
 
-### Docker Deployment
+6. Access the Airflow UI at http://localhost:8080 (login: airflow / airflow)
 
-For containerized deployment:
-
-```
-docker-compose up -d
-```
+For advanced use or CLI development, see detailed docs in docs/INTEGRATION_QUICKSTART.md.
 
 ## Project Management
 
