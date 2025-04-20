@@ -29,6 +29,8 @@ dag = DAG(
     start_date=days_ago(1),
     tags=['analytics', 'etl', 'ml'],
 )
+# Use module docstring for DAG documentation
+dag.doc_md = __doc__
 
 # Extract and transform data from source systems
 extract_transform_task = SnowflakeOperator(

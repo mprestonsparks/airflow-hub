@@ -29,6 +29,8 @@ dag = DAG(
     start_date=days_ago(1),
     tags=['trading', 'ibkr'],
 )
+# Use module docstring as DAG documentation
+dag.doc_md = __doc__
 
 # Extract task using project-specific operator
 extract_task = IBKRDataOperator(

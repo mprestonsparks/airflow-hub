@@ -30,6 +30,8 @@ dag = DAG(
     start_date=days_ago(1),
     tags=['maintenance', 'system', 'common'],
 )
+# Use module docstring as DAG documentation
+dag.doc_md = __doc__
 
 # Task to clean up old logs
 cleanup_logs = BashOperator(
