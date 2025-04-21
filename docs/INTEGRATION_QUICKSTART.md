@@ -34,8 +34,13 @@ docker-compose exec airflow-webserver airflow dags list-import-errors
 ```
 
 ## 6. Run Tests
+Run DAG validation and plugin tests locally:
 ```bash
-pytest tests/test_dag_validation.py
+pytest tests/
+```
+Or use the Docker Compose test service for an isolated environment:
+```bash
+docker-compose up --build --abort-on-container-exit --exit-code-from airflow-test airflow-test
 ```
 
 ## 7. Access the Airflow UI

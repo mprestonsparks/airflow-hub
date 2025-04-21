@@ -3,6 +3,7 @@ Interactive Brokers data operator for extracting trading data.
 """
 
 from airflow.utils.decorators import apply_defaults
+from airflow.hooks.base import BaseHook
 from plugins.common.operators.base_operator import BaseDataOperator
 import logging
 import pandas as pd
@@ -43,7 +44,6 @@ class IBKRDataOperator(BaseDataOperator):
         self.start_date = start_date
         self.end_date = end_date
         self.output_path = output_path
-        self.log = logging.getLogger(__name__)
     
     def execute(self, context):
         """
@@ -77,8 +77,9 @@ class IBKRDataOperator(BaseDataOperator):
         else:
             end_date = self.end_date
         
-        # Get connection details
-        connection = self.get_connection(self.conn_id)
+        # Get connection details from Airflow
+        # Use BaseHook to retrieve the connection (self.get_connection is not available)
+        connection = BaseHook.get_connection(self.conn_id)
         
         # Extract API credentials from connection
         api_key = connection.password

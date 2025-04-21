@@ -50,7 +50,7 @@ Prerequisites:
    docker-compose build
    ```
 
-3. Initialize the Airflow database and create admin user:
+3. Initialize the Airflow database and create an admin user:
    ```bash
    docker-compose run --rm airflow-init
    ```
@@ -60,12 +60,22 @@ Prerequisites:
    docker-compose up -d
    ```
 
-5. Verify DAGs and tests:
+5. Verify DAGs imported:
    ```bash
    docker-compose exec airflow-webserver airflow dags list
    docker-compose exec airflow-webserver airflow dags list-import-errors
-   pytest tests/test_dag_validation.py
    ```
+   
+### Running Tests
+
+You can run all DAG and plugin tests in an isolated Airflow environment:
+```bash
+docker-compose up --build --abort-on-container-exit --exit-code-from airflow-test airflow-test
+```
+Or run tests locally:
+```bash
+pytest tests/
+```
 
 6. Access the Airflow UI at http://localhost:8080 (login: airflow / airflow)
 
