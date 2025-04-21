@@ -16,8 +16,9 @@ USER airflow
 # Copy requirements file
 COPY requirements.txt /requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r /requirements.txt
+# Upgrade pip and install Python dependencies
+RUN echo "==> Installing project dependencies..." \
+    && pip install --no-cache-dir -r /requirements.txt -vvv
 
 # Copy DAGs and plugins
 COPY dags/ ${AIRFLOW_HOME}/dags/

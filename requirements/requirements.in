@@ -1,0 +1,16 @@
+# Top-level requirements for Airflow Hub (un-pinned)
+#
+# This file is the source of truth for all runtime dependencies.
+# Use pip-tools to generate requirements.txt for reproducible builds:
+#   python -m piptools compile requirements/requirements.in --output-file requirements/requirements.txt
+# To add or update a dependency, edit this file and re-run the above command.
+apache-airflow
+pandas
+numpy
+matplotlib
+yfinance
+ibapi
+scikit-learn
+requests
+python-dotenv
+# Add any other shared or project-specific requirements here

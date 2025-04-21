@@ -32,12 +32,24 @@ dag = DAG(
 # Use module docstring as DAG documentation
 dag.doc_md = __doc__
 
-# Extract task using project-specific operator
-extract_task = IBKRDataOperator(
+# Extract task now uses DockerOperator for full dependency isolation and reproducibility.
+# This runs the new extract_ibkr_data.py CLI script inside the project_trading container.
+extract_task = DockerOperator(
     task_id='extract_ibkr_data',
-    conn_id='project_trading_ibkr',  # Project-specific connection
-    data_types=['trades', 'positions', 'market_data'],
-    output_path='/tmp/data/{{ ds }}',
+    image='project_trading:latest',  # Image built from Dockerfile.project_trading
+    command=[
+        'python', '/app/plugins/project_trading/extract_ibkr_data.py',
+        '--conn-id', 'project_trading_ibkr',
+        '--data-types', 'trades', 'positions', 'market_data',
+        '--start-date', '{{ ds }}',
+        '--end-date', '{{ ds }}',
+        '--output-path', '/tmp/data/{{ ds }}',
+    ],
+    environment={
+        # Pass any secrets/credentials via env or Docker secrets in production
+    },
+    docker_url='unix://var/run/docker.sock',
+    network_mode='bridge',
     dag=dag,
 )
 
