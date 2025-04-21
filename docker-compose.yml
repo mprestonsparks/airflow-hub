@@ -48,9 +48,11 @@ services:
       - 8080:8080
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - ./logs:/opt/airflow/logs
+      - /var/run/docker.sock:/var/run/docker.sock:rw  # Required for DockerOperator
     restart: always
     depends_on:
       <<: *airflow-common-depends-on
@@ -63,6 +65,11 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - ./logs:/opt/airflow/logs
+      - /var/run/docker.sock:/var/run/docker.sock:rw  # Required for DockerOperator
     restart: always
     depends_on:
       <<: *airflow-common-depends-on
