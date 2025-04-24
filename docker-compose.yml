@@ -45,7 +45,13 @@ services:
     <<: *airflow-common
     command: webserver
     ports:
-      - 8080:8080
+      - "8080:8080"
+    env_file:
+      - ../market-analysis/.env # Load secrets from market-analysis repo
+    environment:
+      <<: *airflow-common-env
+      AIRFLOW_VAR_BINANCE_API_KEY: ${BINANCE_API_KEY:-}
+      AIRFLOW_VAR_BINANCE_SECRET_KEY: ${BINANCE_SECRET_KEY:-}
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
     volumes:
@@ -60,6 +66,12 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
+    env_file:
+      - ../market-analysis/.env # Load secrets from market-analysis repo
+    environment:
+      <<: *airflow-common-env
+      AIRFLOW_VAR_BINANCE_API_KEY: ${BINANCE_API_KEY:-}
+      AIRFLOW_VAR_BINANCE_SECRET_KEY: ${BINANCE_SECRET_KEY:-}
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 10s
@@ -139,14 +151,18 @@ services:
         mkdir -p /sources/logs /sources/dags /sources/plugins
         chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
         exec /entrypoint airflow version
+    env_file:
+      - ../market-analysis/.env # Load secrets from market-analysis repo
     environment:
       <<: *airflow-common-env
+      AIRFLOW_VAR_BINANCE_API_KEY: ${BINANCE_API_KEY:-}
+      AIRFLOW_VAR_BINANCE_SECRET_KEY: ${BINANCE_SECRET_KEY:-}
       _AIRFLOW_DB_UPGRADE: 'true'
       _AIRFLOW_WWW_USER_CREATE: 'true'
       _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
       _PIP_ADDITIONAL_REQUIREMENTS: ''
-    user: "0:0"
+    user: "${AIRFLOW_UID:-50000}"
     volumes:
       - .:/sources
 

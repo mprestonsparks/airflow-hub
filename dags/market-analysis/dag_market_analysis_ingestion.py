@@ -3,6 +3,10 @@ Market Analysis Ingestion DAG.
 
 This DAG uses the `market-analysis:latest` Docker image to fetch daily market data
 for a specified symbol and date using the market-analysis script.
+
+It requires the Airflow Variables `binance_api_key` and `binance_secret_key` to be set,
+which contain the necessary credentials for the Binance API. These variables are
+passed as environment variables to the Docker container run by the `DockerOperator`.
 """
 from airflow import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
@@ -34,6 +38,11 @@ dag.doc_md = __doc__
 ingest_task = DockerOperator(
     task_id='ingest_market_data',
     image='market-analysis:latest',
+    # Pass Airflow Variables (sourced from .env via docker-compose) to the container
+    environment={
+        'BINANCE_API_KEY': '{{ var.value.binance_api_key }}',
+        'BINANCE_SECRET_KEY': '{{ var.value.binance_secret_key }}'
+    },
     command=[
         'python', '-m', 'src.main',
         '--symbol', '{{ params.symbol }}',
@@ -43,5 +52,6 @@ ingest_task = DockerOperator(
     params={'symbol': 'AAPL'},
     docker_url='unix://var/run/docker.sock',
     network_mode='bridge',
+    execution_timeout=timedelta(minutes=30),
     dag=dag,
 )

@@ -13,9 +13,15 @@ WORKDIR /app
 COPY docker/project_specific/requirements_project_analytics.txt /app/requirements.txt
 COPY docker/project_specific/constraints_project_analytics.txt /app/constraints.txt
 
+# Install dependencies from requirements.txt (excluding TensorFlow for now)
 RUN pip install --upgrade pip \
     && echo "==> Upgraded pip to $(pip --version)..." \
-    && pip install --no-cache-dir -r /app/requirements.txt -c /app/constraints.txt -vvv
+    && echo "==> Installing requirements from file (excluding TensorFlow)..." \
+    && pip install --no-cache-dir -r /app/requirements.txt -vvv
+
+# Install TensorFlow separately
+RUN echo "==> Installing TensorFlow..." \
+    && pip install --no-cache-dir tensorflow==2.12.0 -vvv
 
 COPY plugins/common /app/plugins/common
 COPY plugins/project_analytics /app/plugins/project_analytics

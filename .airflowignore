@@ -27,3 +27,5 @@
 **/*.pyo
 **/*.pyd
 **/.DS_Store
+
+dags/project_analytics/analytics_daily_etl.py
