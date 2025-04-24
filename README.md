@@ -25,11 +25,12 @@ airflow-hub/
 │   └── plugins/           # Plugin tests
 │
 ├── docker/                # Containerization configuration
-│   ├── Dockerfile.airflow # Main Airflow image
-│   └── project_specific/  # Project-specific Docker images
+│   ├── Dockerfile.airflow # Main Airflow image (base environment)
+│   └── project_specific/  # Optional, project-specific Dockerfiles/images
+│                        # Use when projects have complex or conflicting dependencies
 │
-├── requirements.txt       # Core dependencies
-└── .airflowignore        # Patterns to exclude from DAG parsing
+├── requirements.txt       # Core Airflow dependencies for the base image
+└── .airflowignore        # Patterns to exclude from DAG parsing (e.g., broken/dev DAGs)
 ```
 
 ## Getting Started
@@ -50,7 +51,7 @@ Prerequisites:
    docker-compose build
    ```
 
-3. Initialize the Airflow database and create an admin user:
+3. Initialize the Airflow environment (runs DB migrations, creates default user):
    ```bash
    docker-compose run --rm airflow-init
    ```
@@ -79,7 +80,19 @@ pytest tests/
 
 6. Access the Airflow UI at http://localhost:8080 (login: airflow / airflow)
 
-For advanced use or CLI development, see detailed docs in docs/INTEGRATION_QUICKSTART.md.
+### Secrets Management
+
+This setup utilizes a pattern for managing secrets required by specific projects (e.g., API keys for `market-analysis`).
+
+1.  **`.env` Files:** Store sensitive credentials in a `.env` file within the *source project's* repository (e.g., `../market-analysis/.env`). **Do not commit `.env` files to Git.**
+2.  **`docker-compose.yml`:** Modify the `docker-compose.yml` file in `airflow-hub`:
+    *   Use the `env_file` directive in relevant Airflow services (`airflow-webserver`, `airflow-scheduler`, `airflow-worker`, `airflow-init`) to load the external `.env` file.
+    *   Define environment variables within the `environment:` block for these services to create Airflow Variables. Use the format `AIRFLOW_VAR_<VARIABLE_NAME>: ${DOTENV_VARIABLE_NAME:-}`.
+        *Example:* `AIRFLOW_VAR_BINANCE_API_KEY: ${BINANCE_API_KEY:-}`
+3.  **DAG Usage:** Access these secrets within DAGs using Airflow Variables, typically via Jinja templating in operators: `{{ var.value.variable_name }}`.
+    *Example:* `api_key = '{{ var.value.binance_api_key }}'`
+
+This approach keeps secrets out of the Airflow metadata database and repository code, sourcing them directly from the relevant project at runtime.
 
 ## Project Management
 
@@ -109,13 +122,8 @@ For advanced use or CLI development, see detailed docs in docs/INTEGRATION_QUICK
 
 ## Contributing
 
-1. Follow the project structure and naming conventions
-2. Keep project boundaries clear - no cross-project imports
-3. Move shared functionality to common modules
-4. Add tests for all new code
-5. Document connections and external dependencies
+Please refer to the development guidelines in `docs/dev/CONTRIBUTING.md`.
 
 ## License
-Property of
-(c) M. Preston Sparks, 2025 
-All rights reserved. 
+
+This project is the private property of M. Preston Sparks. All rights reserved.

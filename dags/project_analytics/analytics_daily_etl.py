@@ -9,7 +9,9 @@ from airflow import DAG
 from airflow.utils.dates import days_ago
 from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 from airflow.operators.python import PythonOperator
-from plugins.project_analytics.operators import DataQualityOperator, MLPredictionOperator
+# Correctly import operators from their specific modules
+from plugins.project_analytics.operators.data_quality_operator import DataQualityOperator
+from plugins.project_analytics.operators.ml_prediction_operator import MLPredictionOperator
 
 # Configuration with project-specific naming conventions
 DEFAULT_ARGS = {
