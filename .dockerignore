@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+.venv/
+virtualenv/
+env/
+venv/
+
+# IDE files
+.vscode/
+.idea/
+
+# Test reports / build artifacts
+htmlcov/
+.coverage
+.pytest_cache/
+build/
+dist/
+*.egg-info/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+Dockerfile.*
+docker-compose.yml
+.dockerignore
+
+# Log files
+*.log
+logs/
+
+# Other specific project files if needed
+# .env
+# local_settings.py
