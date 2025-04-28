@@ -2,7 +2,6 @@
 ML prediction operator for running machine learning predictions.
 """
 
-from airflow.utils.decorators import apply_defaults
 from plugins.common.operators.base_operator import BaseDataOperator
 import logging
 import pandas as pd
@@ -32,7 +31,6 @@ class MLPredictionOperator(BaseDataOperator):
     
     template_fields = ('model_path', 'input_query', 'output_table')
     
-    @apply_defaults
     def __init__(
         self,
         conn_id,

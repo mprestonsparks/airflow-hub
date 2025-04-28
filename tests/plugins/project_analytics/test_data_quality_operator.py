@@ -36,7 +36,7 @@ class TestDataQualityOperator:
         # Mock Airflow context
         self.context = {}
     
-    @patch('plugins.project_analytics.operators.data_quality_operator.DatabaseHook')
+    @patch('plugins.common.hooks.database_hook.DatabaseHook')
     def test_init(self, mock_db_hook):
         """Test operator initialization."""
         # Assert operator attributes
@@ -45,7 +45,7 @@ class TestDataQualityOperator:
         assert self.operator.checks == self.checks
         assert self.operator.fail_on_error is True
     
-    @patch('plugins.project_analytics.operators.data_quality_operator.DatabaseHook')
+    @patch('plugins.common.hooks.database_hook.DatabaseHook')
     def test_execute_all_checks_pass(self, mock_db_hook_class):
         """Test execute method when all checks pass."""
         # Setup mock
@@ -68,7 +68,7 @@ class TestDataQualityOperator:
         for check_result in result['checks']:
             assert check_result['passed'] is True
     
-    @patch('plugins.project_analytics.operators.data_quality_operator.DatabaseHook')
+    @patch('plugins.common.hooks.database_hook.DatabaseHook')
     def test_execute_null_check_fails(self, mock_db_hook_class):
         """Test execute method when null check fails."""
         # Setup mock
@@ -90,7 +90,7 @@ class TestDataQualityOperator:
         assert result['passed'] is False
         assert any(not check['passed'] for check in result['checks'])
     
-    @patch('plugins.project_analytics.operators.data_quality_operator.DatabaseHook')
+    @patch('plugins.common.hooks.database_hook.DatabaseHook')
     def test_execute_unique_check_fails(self, mock_db_hook_class):
         """Test execute method when unique check fails."""
         # Setup mock
@@ -112,7 +112,7 @@ class TestDataQualityOperator:
         assert result['passed'] is False
         assert any(not check['passed'] for check in result['checks'])
     
-    @patch('plugins.project_analytics.operators.data_quality_operator.DatabaseHook')
+    @patch('plugins.common.hooks.database_hook.DatabaseHook')
     def test_execute_value_range_check_fails(self, mock_db_hook_class):
         """Test execute method when value range check fails."""
         # Setup mock
@@ -134,7 +134,7 @@ class TestDataQualityOperator:
         assert result['passed'] is False
         assert any(not check['passed'] for check in result['checks'])
     
-    @patch('plugins.project_analytics.operators.data_quality_operator.DatabaseHook')
+    @patch('plugins.common.hooks.database_hook.DatabaseHook')
     def test_execute_row_count_check_fails(self, mock_db_hook_class):
         """Test execute method when row count check fails."""
         # Setup mock
@@ -152,7 +152,7 @@ class TestDataQualityOperator:
         # Verify the result
         assert result['passed'] is False
     
-    @patch('plugins.project_analytics.operators.data_quality_operator.DatabaseHook')
+    @patch('plugins.common.hooks.database_hook.DatabaseHook')
     def test_execute_with_custom_sql(self, mock_db_hook_class):
         """Test execute method with custom SQL query."""
         # Setup mock
@@ -176,7 +176,7 @@ class TestDataQualityOperator:
         # Verify the SQL query was used
         mock_db_hook.run_query.assert_called_once_with(custom_sql)
     
-    @patch('plugins.project_analytics.operators.data_quality_operator.DatabaseHook')
+    @patch('plugins.common.hooks.database_hook.DatabaseHook')
     def test_execute_fail_on_error(self, mock_db_hook_class):
         """Test execute method raises exception when checks fail and fail_on_error=True."""
         # Setup mock

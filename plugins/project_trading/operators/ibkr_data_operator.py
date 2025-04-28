@@ -2,7 +2,7 @@
 Interactive Brokers data operator for extracting trading data.
 """
 
-from airflow.utils.decorators import apply_defaults
+from airflow.models.baseoperator import BaseOperator
 from airflow.hooks.base import BaseHook
 from plugins.common.operators.base_operator import BaseDataOperator
 import logging
@@ -24,12 +24,12 @@ class IBKRDataOperator(BaseDataOperator):
         start_date (str or datetime, optional): Start date for data extraction.
         end_date (str or datetime, optional): End date for data extraction.
         output_path (str, optional): Path to save extracted data.
+        validate_conn_id (bool, optional): Validate connection ID. Defaults to True.
         **kwargs: Additional arguments passed to the BaseDataOperator.
     """
     
     template_fields = ('start_date', 'end_date', 'output_path')
     
-    @apply_defaults
     def __init__(
         self,
         conn_id,
@@ -37,9 +37,19 @@ class IBKRDataOperator(BaseDataOperator):
         start_date=None,
         end_date=None,
         output_path=None,
+        validate_conn_id=True,
         **kwargs
     ):
-        super().__init__(conn_id=conn_id, **kwargs)
+        # Call super() WITHOUT conn_id, passing other kwargs (like task_id) up
+        super().__init__(**kwargs)
+        
+        # Set conn_id *after* BaseOperator initialization
+        self.conn_id = conn_id
+
+        # Perform validation *after* BaseOperator has set self.conn_id
+        if validate_conn_id:
+            self._validate_conn_id(self.conn_id)
+
         self.data_types = data_types
         self.start_date = start_date
         self.end_date = end_date
