@@ -137,14 +137,41 @@ for domain in DOMAIN_DIRS:
                     # Prepare operator arguments
                     op_kwargs = task_config.copy()
                     op_kwargs.pop('operator', None)
-                    op_kwargs.pop('depends_on', None) # Remove potential old dependency key
-                    op_kwargs.pop('upstream', None) # Remove potential old dependency key
-                    op_kwargs.pop('downstream', None) # Remove potential old dependency key
+                    op_kwargs.pop('upstream_tasks', None) # Remove potential old dependency key
+                    op_kwargs.pop('downstream_tasks', None) # Remove potential old dependency key
 
                     # Instantiate operator
                     tasks[task_id] = OperatorClass(task_id=task_id, **op_kwargs)
 
-            # TODO: Implement task dependencies based on YAML config (e.g., using 'upstream'/'downstream' keys)
+            # Set Task Dependencies
+            for task_id, task_config in tasks_config.items():
+                current_task = tasks.get(task_id)
+                if not current_task:
+                    continue # Task might have failed instantiation
+
+                # Upstream dependencies (other_task >> current_task)
+                upstream_ids = task_config.get('upstream_tasks', [])
+                if isinstance(upstream_ids, list):
+                    for upstream_id in upstream_ids:
+                        upstream_task = tasks.get(upstream_id)
+                        if upstream_task:
+                            upstream_task.set_downstream(current_task)
+                        else:
+                            log.warning(f"In DAG '{expected_dag_id}', task '{task_id}': Upstream task ID '{upstream_id}' not found.")
+                elif upstream_ids: # Check if it's non-empty but not a list
+                    log.warning(f"In DAG '{expected_dag_id}', task '{task_id}': 'upstream_tasks' must be a list, but found type {type(upstream_ids)}. Skipping upstream dependencies for this task.")
+
+                # Downstream dependencies (current_task >> other_task)
+                downstream_ids = task_config.get('downstream_tasks', [])
+                if isinstance(downstream_ids, list):
+                    for downstream_id in downstream_ids:
+                        downstream_task = tasks.get(downstream_id)
+                        if downstream_task:
+                            current_task.set_downstream(downstream_task)
+                        else:
+                            log.warning(f"In DAG '{expected_dag_id}', task '{task_id}': Downstream task ID '{downstream_id}' not found.")
+                elif downstream_ids: # Check if it's non-empty but not a list
+                    log.warning(f"In DAG '{expected_dag_id}', task '{task_id}': 'downstream_tasks' must be a list, but found type {type(downstream_ids)}. Skipping downstream dependencies for this task.")
 
             # Register DAG
             globals()[expected_dag_id] = dag

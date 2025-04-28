@@ -1,0 +1,37 @@
+# dags/common/test_dependencies.yaml
+# DAG for testing YAML dependency parsing
+
+default:
+  owner: 'test_team'
+  start_date: '2025-01-01'
+  retries: 0
+
+test_dependencies:
+  dag:
+    description: 'Test DAG for YAML task dependencies'
+    schedule: '@once'
+    tags: ['test', 'common', 'yaml', 'dependencies']
+
+  tasks:
+    start_task:
+      operator: airflow.operators.empty.EmptyOperator
+      downstream_tasks: ['task_A', 'task_B']
+
+    task_A:
+      operator: airflow.operators.empty.EmptyOperator
+      # upstream_tasks: ['start_task'] # Implicit via start_task's downstream
+      downstream_tasks: ['join_task']
+
+    task_B:
+      operator: airflow.operators.empty.EmptyOperator
+      # upstream_tasks: ['start_task'] # Implicit
+      downstream_tasks: ['join_task']
+
+    join_task:
+      operator: airflow.operators.empty.EmptyOperator
+      upstream_tasks: ['task_A', 'task_B']
+      # downstream_tasks: ['end_task'] # Set via end_task's upstream
+
+    end_task:
+      operator: airflow.operators.empty.EmptyOperator
+      upstream_tasks: ['join_task']
