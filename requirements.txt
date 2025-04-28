@@ -1,29 +1,22 @@
 # Database connectors
-snowflake-connector-python==3.0.2
-pymysql==1.0.3
-psycopg2-binary==2.9.5
+pymysql
+psycopg2-binary
 
 # API integrations
-requests==2.28.2
-httpx==0.23.3
+requests
+httpx
 
 # Common data processing libraries
-pandas~=1.5.3
-numpy~=1.23.5
-scikit-learn~=1.4.0
+pandas
+numpy
+scikit-learn
 
 # Airflow dependencies
-apache-airflow~=2.8.0
-apache-airflow-providers-common-sql==1.10.0
-apache-airflow-providers-cncf-kubernetes==8.4.2
-apache-airflow-providers-docker==3.11.0
-apache-airflow-providers-postgres==5.11.0
-apache-airflow-providers-sqlite==3.6.0
-dag-factory~=0.23.0
-pyyaml~=6.0
+
+# DAG Factory (Commented out for Airflow 3.0 testing)
 
 # Testing
-pytest~=7.4.0
+pytest
 
 # If using specific Airflow features like KubernetesExecutor or celery, 
 # uncomment the relevant lines below:

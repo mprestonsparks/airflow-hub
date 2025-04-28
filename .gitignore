@@ -32,3 +32,6 @@ dist/
 # Ignore sensitive files (if any, add specific patterns)
 # *.env
 # secrets.yaml
+
+# Ignore local test execution script
+scripts/run_tests.ps1

@@ -8,8 +8,8 @@ such as log cleanup, database optimization, and health checks.
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
 from datetime import timedelta
+import pendulum
 
 # Configuration for system maintenance
 DEFAULT_ARGS = {
@@ -26,8 +26,8 @@ dag = DAG(
     'common_system_maintenance',
     default_args=DEFAULT_ARGS,
     description='System-wide maintenance tasks',
-    schedule_interval='0 0 * * 0',  # Weekly at midnight on Sunday
-    start_date=days_ago(1),
+    schedule='0 0 * * 0',  # Weekly at midnight on Sunday. Use 'schedule' instead of 'schedule_interval'.
+    start_date=pendulum.today('UTC').add(days=-1),
     tags=['maintenance', 'system', 'common'],
 )
 # Use module docstring as DAG documentation

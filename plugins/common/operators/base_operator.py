@@ -3,7 +3,6 @@ Base operator for data processing tasks that can be extended by project-specific
 """
 
 from airflow.models.baseoperator import BaseOperator
-from airflow.utils.decorators import apply_defaults
 import logging
 
 
@@ -19,26 +18,20 @@ class BaseDataOperator(BaseOperator):
         **kwargs: Additional arguments passed to the BaseOperator.
     """
     
-    @apply_defaults
     def __init__(
         self,
-        conn_id=None,
-        validate_conn_id=True,
+        # Minimal __init__ to just pass args/kwargs up the MRO
         *args,
         **kwargs
     ):
+        # Pass only args/kwargs intended for BaseOperator (like task_id) up the chain.
+        # Custom params like conn_id are handled by subclasses now.
         super().__init__(*args, **kwargs)
-        self.conn_id = conn_id
-        self.validate_conn_id = validate_conn_id
-        self.log = logging.getLogger(__name__)
-        
-        # Validate connection ID naming convention if specified
-        if conn_id and validate_conn_id:
-            self._validate_conn_id(conn_id)
+        # BaseOperator handles log assignment
     
     def _validate_conn_id(self, conn_id):
         """
-        Validates that the connection ID follows project naming conventions.
+        Validates the connection ID against the project naming convention.
         
         Args:
             conn_id (str): The connection ID to validate.
