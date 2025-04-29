@@ -1,0 +1,55 @@
+# dags/common/system_maintenance.yaml
+# Defines the system-wide maintenance DAG using the native YAML factory.
+
+# Default arguments applicable to all tasks in this DAG
+default_args:
+  owner: 'airflow_admin'
+  depends_on_past: False
+  retries: 1
+  retry_delay_seconds: 300 # 5 minutes
+  # email_on_failure: True # Configure via Airflow Connections/Variables recommended
+  # email: ['admin@example.com']
+
+# DAG-level configuration
+dag:
+  description: 'System-wide maintenance tasks (Log Cleanup, DB Optimize, Disk Check, Conn Check)'
+  schedule: '0 0 * * 0' # Weekly at midnight on Sunday UTC
+  start_date: # Using relative date for flexibility
+    days: 1 # Corresponds to pendulum.today('UTC').add(days=-1)
+  tags:
+    - 'maintenance'
+    - 'system'
+    - 'common'
+  catchup: False # Prevent backfilling for maintenance DAGs
+  # doc_md: | # Optional: Add detailed markdown documentation here if needed
+  #   This DAG performs essential weekly maintenance for the Airflow instance.
+  #   - Cleans logs older than 30 days.
+  #   - Optimizes the metadata database.
+  #   - Checks available disk space on /opt/airflow.
+  #   - Validates all configured connections.
+
+# Task definitions
+tasks:
+  cleanup_old_logs:
+    operator: airflow.operators.bash.BashOperator
+    bash_command: 'find /opt/airflow/logs -type f -name "*.log" -mtime +30 -delete'
+
+  optimize_airflow_db:
+    operator: airflow.operators.bash.BashOperator
+    # Ensure date command works in the execution environment (e.g., Linux)
+    # Cleans records older than 30 days. Adjust retention as needed.
+    bash_command: 'airflow db clean --clean-before-timestamp "$(date -d \"-30 days\" \"+%Y-%m-%d\")" --yes'
+    # Added --yes to run non-interactively
+    upstream_tasks: [cleanup_old_logs] # Define dependency
+
+  check_disk_space:
+    operator: airflow.operators.python.PythonOperator
+    python_callable_name: check_disk_space
+    python_callable_package: plugins.common.utils.system_utils
+    # This task runs independently of the cleanup/optimize chain
+
+  check_connections:
+    operator: airflow.operators.python.PythonOperator
+    python_callable_name: check_connections
+    python_callable_package: plugins.common.utils.system_utils
+    upstream_tasks: [check_disk_space] # Run after disk check
