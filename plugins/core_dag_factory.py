@@ -1,20 +1,17 @@
 # plugins/core_dag_factory.py
 import re
 import logging
+import traceback
 from pathlib import Path
 import yaml
 import pendulum
 from datetime import timedelta
-
-from airflow.models.dag import DAG
+from airflow.utils.dates import cron_presets
 from airflow.utils.module_loading import import_string
+from airflow.exceptions import AirflowException
+from airflow.models.dag import DAG
 
 log = logging.getLogger(__name__)
-
-DAG_ROOT = Path(__file__).parent.parent / "dags"
-log.info(f"Calculated DAG_ROOT path: {DAG_ROOT.resolve()}")
-
-DOMAIN_DIRS = ("ingestion", "execution", "transformation", "analytics")
 
 # Regex based on DAG_RESTRUCTURE_PLAN.md § 1: {provider}_{optional-asset}_{domain}.py
 # Adjusted for YAML and allowing provider/asset to be more general alphanumeric
@@ -31,154 +28,287 @@ VALID_ASSETS = {
     "equities", "spot", "futures", "options", "forex", "bonds"
 }
 
-# Scan for YAML files, validate them, and generate DAGs into the global namespace
-log.info(f"Scanning for DAG definition files in: {[str(DAG_ROOT / domain) for domain in DOMAIN_DIRS]}")
-yaml_files_found = 0
+def validate_dag_filename(filename):
+    match = FILENAME_RE.fullmatch(filename)
+    if not match:
+        return None
+    parts = match.groupdict()
+    provider = parts.get('provider', '').lower()
+    asset_match = parts.get('asset')
+    asset = asset_match.lower() if asset_match else '' # Handle None before lower(), default to empty string
+    file_domain = parts.get('domain', '').lower()
 
-for domain in DOMAIN_DIRS:
-    domain_path = DAG_ROOT / domain
-    if not domain_path.is_dir():
-        log.warning(f"Domain directory not found, skipping: {domain_path}")
-        continue
+    # Validate Provider
+    if provider not in VALID_PROVIDERS:
+        log.error(f"INVALID PROVIDER in filename '{filename}': Provider '{provider}' is not in the approved list {VALID_PROVIDERS}. Skipping.")
+        return None
 
-    for cfg_path in domain_path.glob("*.y*ml"):
-        log.debug(f"Found potential DAG definition file: {cfg_path}")
-        yaml_files_found += 1
-        match = FILENAME_RE.fullmatch(cfg_path.name)
+    # Validate Asset (only if present)
+    if asset and asset not in VALID_ASSETS:
+        log.error(f"INVALID ASSET in filename '{filename}': Asset '{asset}' is not in the approved list {VALID_ASSETS}. Skipping.")
+        return None
 
-        if not match:
-            log.error(f"INVALID FILENAME: '{cfg_path.name}' does not match the required ontology pattern {{provider}}_[{{asset}}]_{{domain}}.yaml. Skipping.")
-            continue
+    # Validate Domain matches folder
+    if file_domain not in ['ingestion', 'execution', 'transformation', 'analytics']:
+        log.error(f"DOMAIN MISMATCH in filename '{filename}': Domain part '{file_domain}' does not match parent folder. Skipping.")
+        return None
 
-        parts = match.groupdict()
-        provider = parts.get('provider', '').lower()
-        asset_match = parts.get('asset')
-        asset = asset_match.lower() if asset_match else '' # Handle None before lower(), default to empty string
-        file_domain = parts.get('domain', '').lower()
+    return provider, asset, file_domain, filename.split('.')[0]
 
-        # Validate Provider
-        if provider not in VALID_PROVIDERS:
-            log.error(f"INVALID PROVIDER in filename '{cfg_path.name}': Provider '{provider}' is not in the approved list {VALID_PROVIDERS}. Skipping.")
-            continue
-
-        # Validate Asset (only if present)
-        if asset and asset not in VALID_ASSETS:
-            log.error(f"INVALID ASSET in filename '{cfg_path.name}': Asset '{asset}' is not in the approved list {VALID_ASSETS}. Skipping.")
-            continue
-
-        # Validate Domain matches folder
-        if file_domain != domain.lower():
-             log.error(f"DOMAIN MISMATCH in filename '{cfg_path.name}': Domain part '{file_domain}' does not match parent folder '{domain}'. Skipping.")
-             continue
-
-        # --- Validation Passed --- 
-        log.info(f"Validation passed for '{cfg_path.name}'. Attempting native DAG generation...")
-        expected_dag_id = cfg_path.stem # Filename without extension
+def timedelta_from_config(value):
+    """Converts an integer (seconds) or string ('HH:MM:SS') to timedelta."""
+    if isinstance(value, int):
+        return timedelta(seconds=value)
+    elif isinstance(value, str):
         try:
-            log.info(f"Generating DAG from: {cfg_path} with expected ID: {expected_dag_id}")
-            
-            # Load YAML config
-            with open(cfg_path, 'r') as f:
-                config = yaml.safe_load(f)
-            
-            if not isinstance(config, dict):
-                 log.error(f"Invalid YAML structure in {cfg_path}: Expected a dictionary at the top level. Skipping.")
-                 continue
+            parts = list(map(int, value.split(':')))
+            if len(parts) == 3:
+                return timedelta(hours=parts[0], minutes=parts[1], seconds=parts[2])
+            elif len(parts) == 2:
+                return timedelta(minutes=parts[0], seconds=parts[1])
+            elif len(parts) == 1:
+                return timedelta(seconds=parts[0])
+        except ValueError:
+            log.warning(f"Could not parse timedelta string: {value}")
+    elif value is not None: # Log if it's not None but also not int/str
+        log.warning(f"Unsupported type for timedelta conversion: {type(value)}")
+    return None # Return None if conversion fails or input is None
 
-            # Extract configurations
-            dag_specific_config = config.get(expected_dag_id, {})
-            dag_config = dag_specific_config.get('dag', {})
-            tasks_config = dag_specific_config.get('tasks', {})
-            default_config = config.get('default', {})
+def generate_yaml_dags(dag_root=None):
+    """Scans YAML files in subdirectories and generates Airflow DAGs.
 
-            if not dag_config or not tasks_config:
-                log.error(f"Invalid YAML structure in {cfg_path}: Missing 'dag' or 'tasks' section under '{expected_dag_id}'. Skipping.")
+    Args:
+        dag_root (str or Path, optional): The root directory containing DAG domain subfolders.
+                                   Defaults to the 'dags' directory relative to this script.
+
+    Returns:
+        dict: A dictionary mapping generated dag_id (str) to DAG objects.
+    """
+    log.info("--- Starting generate_yaml_dags --- ") # Added log
+    generated_dags = {}
+    if dag_root is None:
+        # Default to the directory containing this script if not provided
+        dag_root = Path(__file__).parent.parent / 'dags' # Navigate up from plugins to the repo root
+    elif isinstance(dag_root, str):
+        # Convert to Path object if provided as a string
+        dag_root = Path(dag_root)
+
+    log.info(f"Calculated DAG_ROOT path: {dag_root} (Type: {type(dag_root)})")
+
+    log.info(f"Inside generate_yaml_dags, received dag_root: '{dag_root}' (Type: {type(dag_root)})")
+    if not isinstance(dag_root, Path):
+        log.error(f"dag_root is NOT a Path object! Type is {type(dag_root)}. This will likely cause errors.")
+        # Optionally, you could raise an error here or try to convert
+        # For now, let's log and see if it proceeds.
+
+    if not dag_root.is_dir():
+        log.error(f"DAG root directory '{dag_root}' not found or is not a directory.")
+        return generated_dags
+
+    # Define domain subdirectories to scan (adjust as needed)
+    # TODO: Consider making this configurable?
+    domain_dirs = ['ingestion', 'execution', 'transformation', 'analytics'] 
+    scan_paths = [dag_root / domain for domain in domain_dirs]
+
+    log.info(f"Scanning for DAG definition files in: {scan_paths}")
+
+    for scan_path in scan_paths:
+        if not scan_path.is_dir():
+            log.warning(f"Scan path '{scan_path}' not found, skipping.")
+            continue
+
+        search_pattern = scan_path / "*.yaml"
+        log.info(f"Using search pattern: '{search_pattern}' (Type: {type(search_pattern)})") # Added type log
+        try:
+            log.info("Attempting glob operation...")
+            yaml_files = list(search_pattern.glob('*.yaml'))
+            log.info(f"Glob operation successful. Found {len(yaml_files)} potential YAML files: {yaml_files}")
+        except Exception as e:
+            log.exception(f"Error during glob operation with pattern '{search_pattern}': {e}")
+            return generated_dags # Stop processing if glob fails
+
+        if not yaml_files:
+            log.warning(f"No YAML files found matching the pattern in subdirectories of {dag_root}.")
+            return generated_dags
+
+        for yaml_path in yaml_files:
+            log.debug(f"Processing file: {yaml_path}")
+
+            # --- Filename Validation & DAG ID Derivation ---
+            validation_result = validate_dag_filename(yaml_path.name)
+            if not validation_result:
+                log.warning(f"Skipping invalid filename: {yaml_path.name}")
                 continue
 
-            # Prepare default_args
-            default_args = default_config.copy()
-            if 'retry_delay_sec' in default_args:
-                default_args['retry_delay'] = timedelta(seconds=default_args.pop('retry_delay_sec'))
-            
-            # Prepare DAG kwargs
+            provider, asset, domain, expected_dag_id = validation_result
+            log.info(f"Validation passed for '{yaml_path.name}'. Attempting native DAG generation...")
+            log.info(f"Generating DAG from: {yaml_path} with expected ID: {expected_dag_id}")
+
+            # --- YAML Loading ---
+            try:
+                with open(yaml_path, 'r') as f:
+                    cfg = yaml.safe_load(f)
+            except yaml.YAMLError as e:
+                log.error(f"Error parsing YAML file {yaml_path}: {e}")
+                continue
+            except Exception as e:
+                log.error(f"Error reading file {yaml_path}: {e}")
+                continue
+
+            if not isinstance(cfg, dict) or expected_dag_id not in cfg:
+                log.error(f"Invalid YAML structure or missing top-level key '{expected_dag_id}' in {yaml_path}")
+                continue
+
+            # --- DAG Configuration Parsing ---
+            dag_config = cfg.get(expected_dag_id, {}).get('dag', {})
+            default_args_config = cfg.get('default', {})
+
             dag_kwargs = {
                 'description': dag_config.get('description'),
-                'schedule': dag_config.get('schedule_interval'), # Use 'schedule' for DAG constructor
-                'start_date': dag_config.get('start_date'), # Pass string directly, Airflow handles Jinja
-                'tags': dag_config.get('tags'),
-                'params': dag_config.get('params'),
-                'catchup': dag_config.get('catchup', default_config.get('catchup', False)), # Default catchup to False
-                'default_args': default_args,
+                'schedule': dag_config.get('schedule_interval', dag_config.get('schedule')), # Support both
+                # 'start_date': handled below,
+                'catchup': dag_config.get('catchup', False),
+                'tags': dag_config.get('tags', []), # Ensure tags is a list
+                'default_args': default_args_config.copy(), # Use a copy
+                'params': dag_config.get('params', {}), # Add params support
+                'max_active_runs': dag_config.get('max_active_runs', 16), # Default from Airflow
+                'max_active_tasks': dag_config.get('max_active_tasks', 16), # Default from Airflow
+                'dagrun_timeout': timedelta_from_config(dag_config.get('dagrun_timeout')), # Use helper
+                # Add other DAG parameters as needed: on_success_callback, etc.
             }
+
+            # Add owner from default_args if not overridden in DAG config
+            if 'owner' not in dag_kwargs['default_args'] and 'owner' in default_args_config:
+                dag_kwargs['default_args']['owner'] = default_args_config['owner']
+            # Clean up retry_delay format (remove _sec suffix if present)
+            if 'retry_delay_sec' in dag_kwargs['default_args']:
+                delay_val = dag_kwargs['default_args'].pop('retry_delay_sec')
+                dag_kwargs['default_args']['retry_delay'] = timedelta(seconds=int(delay_val))
+            elif 'retry_delay' in dag_kwargs['default_args']:
+                # Ensure retry_delay is timedelta if specified directly
+                dag_kwargs['default_args']['retry_delay'] = timedelta_from_config(dag_kwargs['default_args']['retry_delay'])
+
+            # Parse schedule if it's a cron preset name
+            if isinstance(dag_kwargs['schedule'], str) and dag_kwargs['schedule'] in cron_presets:
+                dag_kwargs['schedule'] = cron_presets[dag_kwargs['schedule']]
+
+            # --- start_date Processing ---
+            start_date_value = dag_config.get('start_date')
+            parsed_start_date = None
+            is_jinja_template = False
+            jinja_start_date_str = None
+
+            if isinstance(start_date_value, str):
+                if '{{' in start_date_value and '}}' in start_date_value:
+                    log.debug(f"DAG {expected_dag_id}: Identified Jinja template start_date string: '{start_date_value}'. Will assign post-initialization.")
+                    is_jinja_template = True
+                    jinja_start_date_str = start_date_value
+                else:
+                    try:
+                        parsed_start_date = pendulum.parse(start_date_value)
+                        log.debug(f"DAG {expected_dag_id}: Parsed static start_date string: {parsed_start_date}")
+                    except Exception as e:
+                        log.warning(f"DAG {expected_dag_id}: Could not parse start_date string '{start_date_value}': {e}")
+            elif isinstance(start_date_value, dict) and 'days' in start_date_value:
+                try:
+                    days_ago = int(start_date_value['days'])
+                    parsed_start_date = pendulum.today('UTC').add(days=-days_ago)
+                    log.debug(f"DAG {expected_dag_id}: Calculated relative start_date ({days_ago} days ago): {parsed_start_date}")
+                except (ValueError, TypeError) as e:
+                    log.error(f"DAG {expected_dag_id}: Invalid relative start_date value in {yaml_path}: {start_date_value} - {e}")
+            elif start_date_value is not None:
+                log.warning(f"DAG {expected_dag_id}: Unsupported start_date type '{type(start_date_value)}' in {yaml_path}: {start_date_value}")
+
+            # Only add start_date to kwargs if it was successfully parsed/calculated (NOT Jinja)
+            if parsed_start_date is not None and not is_jinja_template:
+                dag_kwargs['start_date'] = parsed_start_date
+            else:
+                if start_date_value is not None and not is_jinja_template:
+                    log.warning(f"DAG {expected_dag_id}: start_date '{start_date_value}' could not be parsed or is invalid. Check DAG configuration in {yaml_path}.")
+
             # Filter out None values from dag_kwargs
             dag_kwargs = {k: v for k, v in dag_kwargs.items() if v is not None}
 
-            # Create DAG
-            dag = DAG(
-                dag_id=expected_dag_id,
-                **dag_kwargs
-            )
+            # --- DAG Initialization ---
+            log.debug(f"DAG {expected_dag_id}: Initializing with kwargs: {dag_kwargs}")
+            try:
+                dag = DAG(
+                    dag_id=expected_dag_id,
+                    **dag_kwargs
+                )
+            except Exception as e:
+                log.error(f"DAG {expected_dag_id}: Failed during DAG() initialization with kwargs {dag_kwargs}: {e}")
+                log.debug(traceback.format_exc())
+                continue
 
-            # Create Tasks
+            # Assign Jinja start_date AFTER DAG creation if needed
+            if is_jinja_template and jinja_start_date_str:
+                log.debug(f"DAG {expected_dag_id}: Assigning Jinja template string '{jinja_start_date_str}' to dag.start_date post-initialization.")
+                dag.start_date = jinja_start_date_str
+            elif not hasattr(dag, 'start_date') or dag.start_date is None:
+                log.error(f"DAG {expected_dag_id}: Critical error - DAG object lacks a start_date after initialization. Check config '{yaml_path}'.")
+                continue
+
+            # --- Task Creation Loop ---
+            tasks_config = cfg.get(expected_dag_id, {}).get('tasks', {})
             tasks = {}
-            with dag: # Use DAG as context manager
+            task_dependencies = {}
+
+            with dag:
                 for task_id, task_config in tasks_config.items():
                     operator_path = task_config.get('operator')
                     if not operator_path:
-                        log.error(f"Missing 'operator' for task '{task_id}' in {cfg_path}. Skipping task.")
+                        log.error(f"Task {task_id} in DAG {expected_dag_id} is missing 'operator' definition.")
                         continue
-                    
+
                     try:
                         OperatorClass = import_string(operator_path)
-                    except ImportError:
-                        log.error(f"Could not import operator '{operator_path}' for task '{task_id}' in {cfg_path}. Skipping task.", exc_info=True)
+                    except ImportError as e:
+                        log.error(f"Could not import operator '{operator_path}' for task {task_id} in DAG {expected_dag_id}: {e}")
                         continue
-                        
-                    # Prepare operator arguments
+
+                    # Prepare operator arguments, removing non-init args
                     op_kwargs = task_config.copy()
                     op_kwargs.pop('operator', None)
-                    op_kwargs.pop('upstream_tasks', None) # Remove potential old dependency key
-                    op_kwargs.pop('downstream_tasks', None) # Remove potential old dependency key
+                    dependencies = op_kwargs.pop('dependencies', [])
+                    task_dependencies[task_id] = dependencies # Store for later linking
+
+                    # Convert execution_timeout to timedelta if present
+                    if 'execution_timeout' in op_kwargs:
+                        op_kwargs['execution_timeout'] = timedelta_from_config(op_kwargs['execution_timeout'])
 
                     # Instantiate operator
-                    tasks[task_id] = OperatorClass(task_id=task_id, **op_kwargs)
+                    try:
+                        # No need to explicitly pass dag=dag here due to 'with dag:' context
+                        tasks[task_id] = OperatorClass(task_id=task_id, **op_kwargs)
+                        log.debug(f"Created task '{task_id}' of type {operator_path} for DAG {expected_dag_id}")
+                    except Exception as e:
+                        log.error(f"Failed to create task {task_id} in DAG {expected_dag_id}: {e}")
+                        log.debug(traceback.format_exc())
+                        # Decide whether to skip DAG or just task
+                        continue # Skip this task
 
-            # Set Task Dependencies
-            for task_id, task_config in tasks_config.items():
-                current_task = tasks.get(task_id)
-                if not current_task:
-                    continue # Task might have failed instantiation
-
-                # Upstream dependencies (other_task >> current_task)
-                upstream_ids = task_config.get('upstream_tasks', [])
-                if isinstance(upstream_ids, list):
-                    for upstream_id in upstream_ids:
-                        upstream_task = tasks.get(upstream_id)
-                        if upstream_task:
-                            upstream_task.set_downstream(current_task)
+                # --- Set Task Dependencies ---
+                for task_id, dependencies in task_dependencies.items():
+                    if task_id not in tasks:
+                        continue # Task creation failed
+                    upstream_tasks = []
+                    for dep_id in dependencies:
+                        if dep_id in tasks:
+                            upstream_tasks.append(tasks[dep_id])
                         else:
-                            log.warning(f"In DAG '{expected_dag_id}', task '{task_id}': Upstream task ID '{upstream_id}' not found.")
-                elif upstream_ids: # Check if it's non-empty but not a list
-                    log.warning(f"In DAG '{expected_dag_id}', task '{task_id}': 'upstream_tasks' must be a list, but found type {type(upstream_ids)}. Skipping upstream dependencies for this task.")
+                            log.warning(f"Dependency '{dep_id}' not found for task '{task_id}' in DAG '{expected_dag_id}'.")
 
-                # Downstream dependencies (current_task >> other_task)
-                downstream_ids = task_config.get('downstream_tasks', [])
-                if isinstance(downstream_ids, list):
-                    for downstream_id in downstream_ids:
-                        downstream_task = tasks.get(downstream_id)
-                        if downstream_task:
-                            current_task.set_downstream(downstream_task)
-                        else:
-                            log.warning(f"In DAG '{expected_dag_id}', task '{task_id}': Downstream task ID '{downstream_id}' not found.")
-                elif downstream_ids: # Check if it's non-empty but not a list
-                    log.warning(f"In DAG '{expected_dag_id}', task '{task_id}': 'downstream_tasks' must be a list, but found type {type(downstream_ids)}. Skipping downstream dependencies for this task.")
+                    if upstream_tasks:
+                        tasks[task_id].set_upstream(upstream_tasks)
+                        log.debug(f"Set dependencies for task '{task_id}': {dependencies}")
 
-            # Register DAG
-            globals()[expected_dag_id] = dag
-            log.info(f"Successfully generated DAG '{expected_dag_id}' using native Python.")
+            # Store the successfully generated DAG
+            if expected_dag_id not in generated_dags: # Avoid overwriting if duplicate filenames exist
+                generated_dags[expected_dag_id] = dag
+                log.info(f"Successfully generated DAG '{expected_dag_id}' using native Python.")
+            else:
+                log.warning(f"Duplicate DAG ID '{expected_dag_id}' detected. Keeping the first one generated.")
 
-        except Exception as e:
-            log.error(f"Failed to generate DAG from {cfg_path}: {e}", exc_info=True)
-
-if yaml_files_found == 0:
-    log.warning("No YAML DAG definition files found in any domain directory.")
+    log.info(f"--- Finished generate_yaml_dags. Generated {len(generated_dags)} DAGs. ---") # Added log
+    return generated_dags
