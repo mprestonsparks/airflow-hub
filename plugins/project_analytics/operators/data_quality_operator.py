@@ -4,6 +4,7 @@ Data quality operator for validating data quality checks.
 
 from airflow.utils.decorators import apply_defaults
 from plugins.common.operators.base_operator import BaseDataOperator
+from plugins.common.hooks.database_hook import DatabaseHook
 import logging
 import pandas as pd
 import numpy as np
@@ -42,7 +43,6 @@ class DataQualityOperator(BaseDataOperator):
         self.checks = checks
         self.sql_query = sql_query
         self.fail_on_error = fail_on_error
-        self.log = logging.getLogger(__name__)
     
     def execute(self, context):
         """
@@ -60,7 +60,6 @@ class DataQualityOperator(BaseDataOperator):
         self.log.info(f"Running data quality checks on {self.table}")
         
         # Get database hook
-        from plugins.common.hooks.database_hook import DatabaseHook
         hook = DatabaseHook(self.conn_id)
         
         # Fetch data

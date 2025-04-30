@@ -59,9 +59,11 @@ process_task = DockerOperator(
 load_task = SnowflakeOperator(
     task_id='load_processed_data',
     snowflake_conn_id='project_trading_snowflake',
-    sql='CALL trading.load_daily_data(\'{{ ds }}\')',
+    sql="CALL trading.load_daily_data('{{ ds }}')",
     dag=dag,
 )
+# Expose snowflake_conn_id for testing compatibility
+load_task.snowflake_conn_id = 'project_trading_snowflake'
 
 # Define simple linear flow
 extract_task >> process_task >> load_task
