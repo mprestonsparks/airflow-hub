@@ -51,7 +51,7 @@ Prerequisites:
    docker-compose build
    ```
 
-3. Initialize the Airflow environment (runs DB migrations, creates default user):
+3. Initialize the Airflow database and create an admin user:
    ```bash
    docker-compose run --rm airflow-init
    ```
