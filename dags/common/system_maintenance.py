@@ -55,8 +55,16 @@ def check_disk_space(**kwargs):
     import logging
     
     logger = logging.getLogger(__name__)
-    threshold_gb = 10  # Minimum required disk space in GB
+    from airflow.models import Variable
     
+    threshold_gb = Variable.get("system_maintenance_disk_threshold_gb", default_var=10, deserialize_json=False)
+    # Ensure threshold_gb is a number
+    try:
+        threshold_gb = float(threshold_gb)
+    except ValueError:
+        logger.error(f"Invalid value for system_maintenance_disk_threshold_gb variable: {threshold_gb}. Using default of 10.")
+        threshold_gb = 10.0
+
     # Get disk usage statistics
     stat = os.statvfs('/opt/airflow')
     free_gb = (stat.f_bavail * stat.f_frsize) / (1024 ** 3)

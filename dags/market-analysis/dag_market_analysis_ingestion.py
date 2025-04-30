@@ -37,9 +37,12 @@ ingest_task = DockerOperator(
     command=[
         'python', '-m', 'src.main',
         '--symbol', '{{ params.symbol }}',
-        '--start', '{{ ds }}',
-        '--end', '{{ ds }}',
+        '--days', '365',
     ],
+    environment={
+        'BINANCE_API_KEY': '{{ conn.binance_default.login }}',
+        'BINANCE_SECRET_KEY': '{{ conn.binance_default.password }}',
+    },
     params={'symbol': 'AAPL'},
     docker_url='unix://var/run/docker.sock',
     network_mode='bridge',

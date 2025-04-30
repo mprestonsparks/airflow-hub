@@ -51,7 +51,6 @@ class MLPredictionOperator(BaseDataOperator):
         self.features = features
         self.id_column = id_column
         self.prediction_column = prediction_column
-        self.log = logging.getLogger(__name__)
     
     def execute(self, context):
         """

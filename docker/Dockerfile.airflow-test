@@ -1,0 +1,26 @@
+FROM python:3.9-slim
+
+# Install system dependencies for Airflow and database connectors
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        default-libmysqlclient-dev \
+        libpq-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/airflow
+
+# Include project root for module imports
+ENV PYTHONPATH=/opt/airflow:$PYTHONPATH
+
+# Copy and install Python dependencies (Airflow, providers, testing libs)
+COPY requirements.txt ./
+# Install required testing dependencies and Flask-Session for metadata migrations
+RUN pip install --no-cache-dir -r requirements.txt Flask-Session==0.4.0
+
+# Copy repository code (DAGs, plugins, tests)
+COPY . .
+
+# Run pytest by default
+CMD ["pytest", "tests/", "-q"]

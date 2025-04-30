@@ -30,7 +30,6 @@ class BaseDataOperator(BaseOperator):
         super().__init__(*args, **kwargs)
         self.conn_id = conn_id
         self.validate_conn_id = validate_conn_id
-        self.log = logging.getLogger(__name__)
         
         # Validate connection ID naming convention if specified
         if conn_id and validate_conn_id:
