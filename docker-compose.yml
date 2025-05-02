@@ -54,13 +54,12 @@ services:
       AIRFLOW_VAR_BINANCE_SECRET_KEY: ${BINANCE_SECRET_KEY:-}
     volumes:
       - baseline_logs:/app/logs/baseline_issues
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
-    volumes:
       - ./dags:/opt/airflow/dags
       - ./plugins:/opt/airflow/plugins
       - ./logs:/opt/airflow/logs
       - /var/run/docker.sock:/var/run/docker.sock:rw  # Required for DockerOperator
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
     restart: always
     depends_on:
       <<: *airflow-common-depends-on
