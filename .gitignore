@@ -39,3 +39,4 @@ dist/
 # Ignore local test execution script
 scripts/run_tests.ps1
 >>>>>>> feature/ontology-refactor-fix
+.env
