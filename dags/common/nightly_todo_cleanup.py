@@ -5,9 +5,13 @@ from airflow.utils.dates import days_ago
 from datetime import timedelta
 import requests
 
+import yaml
+
 def call_indexagent_endpoint():
-    # Replace with the actual endpoint URL
-    url = "http://indexagent-container/cleanup-todos"
+    # Load configuration from config.yaml
+    with open('/path/to/config.yaml', 'r') as file:
+        config = yaml.safe_load(file)
+    url = config['endpoint_url']
     response = requests.get(url)
     if response.status_code != 200:
         raise Exception(f"Failed to call IndexAgent endpoint: {response.text}")
