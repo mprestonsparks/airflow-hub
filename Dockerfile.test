@@ -1,0 +1,58 @@
+# Use an official Python runtime as a parent image
+# Using standard variant instead of slim to troubleshoot potential image issues
+FROM python:3.11
+
+# Set environment variables
+# Prevents Python from writing pyc files to disc
+ENV PYTHONDONTWRITEBYTECODE 1
+# Ensures Python output is sent straight to terminal without buffering
+ENV PYTHONUNBUFFERED 1
+
+# Set Airflow home directory (used by Airflow internally)
+ENV AIRFLOW_HOME=/opt/airflow
+# Ensure both Airflow's path and our app root are in PYTHONPATH
+ENV PYTHONPATH=/opt/airflow:/app
+# Ignore specific deprecation warning during Python execution (before pytest starts)
+ENV PYTHONWARNINGS="ignore:The `airflow.sensors.python.PythonSensor` class is deprecated.:DeprecationWarning"
+# Set Airflow Test Mode
+ENV AIRFLOW_TEST_MODE=True
+
+# Create directories for Airflow (even if not running full Airflow, some libs expect these)
+RUN mkdir -p ${AIRFLOW_HOME}/dags ${AIRFLOW_HOME}/plugins ${AIRFLOW_HOME}/logs
+
+# Create app directory
+WORKDIR /app
+
+# Install system dependencies needed for building Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    g++ \
+    libblas-dev \
+    liblapack-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+# Copy only requirements first to leverage Docker layer caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir cython
+
+# Upgrade pip
+RUN pip install --no-cache-dir --upgrade pip
+
+# Step 1: Install Airflow core and providers with constraints
+RUN pip install --no-cache-dir --verbose \
+    "apache-airflow[standard,cncf.kubernetes,docker,postgres,sqlite,snowflake,common.sql]==3.0.0" \
+    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.0.0/constraints-3.11.txt"
+
+# Step 2: Install remaining dependencies from requirements.txt without constraints
+RUN pip install --no-cache-dir --verbose -r requirements.txt
+
+# Copy the entire project directory into the container
+# (Assumes Dockerfile.test is in the project root)
+# Make sure to have a .dockerignore file to exclude unnecessary files/dirs
+COPY . .
+
+# Default command to run tests
+# Can be overridden when running the container
+CMD ["pytest", "-v", "-s", "tests/"]

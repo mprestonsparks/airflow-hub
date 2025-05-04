@@ -2,7 +2,7 @@
 Data quality operator for validating data quality checks.
 """
 
-from airflow.utils.decorators import apply_defaults
+from airflow.models.baseoperator import BaseOperator
 from plugins.common.operators.base_operator import BaseDataOperator
 from plugins.common.hooks.database_hook import DatabaseHook
 import logging
@@ -23,12 +23,12 @@ class DataQualityOperator(BaseDataOperator):
         checks (list): List of data quality check dictionaries.
         sql_query (str, optional): Custom SQL query to fetch data. If None, will query the entire table.
         fail_on_error (bool, optional): Whether to fail the task if checks fail. Defaults to True.
+        validate_conn_id (bool, optional): Whether to validate the connection ID. Defaults to True.
         **kwargs: Additional arguments passed to the BaseDataOperator.
     """
     
     template_fields = ('table', 'sql_query')
     
-    @apply_defaults
     def __init__(
         self,
         conn_id,
@@ -36,9 +36,20 @@ class DataQualityOperator(BaseDataOperator):
         checks,
         sql_query=None,
         fail_on_error=True,
+        validate_conn_id=True,
         **kwargs
     ):
-        super().__init__(conn_id=conn_id, **kwargs)
+        # Call super() WITHOUT conn_id, passing other kwargs (like task_id) up
+        super().__init__(**kwargs)
+
+        # Set conn_id *after* BaseOperator initialization
+        self.conn_id = conn_id
+        
+        # Perform validation *after* BaseOperator has set self.conn_id
+        if validate_conn_id:
+            self._validate_conn_id(self.conn_id)
+        
+        # Restore templated field assignments
         self.table = table
         self.checks = checks
         self.sql_query = sql_query

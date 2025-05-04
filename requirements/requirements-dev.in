@@ -1,0 +1,9 @@
+# Dev/test requirements for Airflow Hub
+#
+# This file is the source for requirements-dev.txt (used for CI, linting, and testing).
+# Use pip-tools to generate requirements-dev.txt:
+#   python -m piptools compile requirements/requirements-dev.in --output-file requirements/requirements-dev.txt
+# To add or update a dev dependency, edit this file and re-run the above command.
+flake8
+pytest
+pip-tools

@@ -1,0 +1,45 @@
+# dags/ingestion/binance_ingestion.yaml
+# Generated from dags/market-analysis/dag_market_analysis_ingestion.py
+# Provider: binance, Asset: None, Domain: ingestion
+
+# Note: dag_id will be automatically set to 'binance_ingestion' by core_dag_factory.py
+# based on the filename, overriding any 'dag_id' specified below.
+
+default:
+  owner: 'analytics_team' # From original DAG
+  depends_on_past: False
+  retries: 2
+  retry_delay_sec: 300 # 5 minutes
+  pool: 'pool_ingestion_binance' # Namespaced pool
+
+binance_ingestion: # Top-level key matching expected dag_id
+  dag:
+    description: 'Ingest daily market data from Binance via market-analysis container (YAML definition)'
+    schedule_interval: '@daily'
+    start_date: '{{ (macros.datetime.now() - macros.timedelta(days=1)).strftime("%Y-%m-%d") }}' # days_ago(1)
+    tags: ['market-analysis', 'ingestion', 'yaml', 'binance'] # Added yaml and provider tag
+    # TODO: Resolve mismatch - DAG uses Binance provider/credentials, but default symbol 'AAPL' is an equity.
+    #       Should the default symbol be crypto (e.g., 'BTCUSDT') or configurable?
+    params:
+      symbol: 'BTCUSDT' # Changed from AAPL to match Binance provider
+
+  tasks:
+    # NOTE: We are using DockerOperator here as an example for running a containerized task.
+    ingest_market_data:
+      operator: airflow.providers.docker.operators.docker.DockerOperator
+      image: 'market-analysis:latest'
+      docker_conn_id: binance_default # ADDED: Use Airflow Connection for credentials
+      # REMOVED environment block - Credentials passed via docker_conn_id
+      # Container will receive AIRFLOW_CONN_BINANCE_DEFAULT_LOGIN (API Key) and 
+      # AIRFLOW_CONN_BINANCE_DEFAULT_PASSWORD (Secret Key) as env vars.
+      # Ensure the market-analysis code reads these variables.
+      command: > # Using YAML multiline string for readability
+        python -m src.main
+        --symbol {{ params.symbol }}
+        --start {{ ds }}
+        --end {{ ds }}
+        --provider binance # Explicitly set provider based on DAG context
+      docker_url: 'unix://var/run/docker.sock' # Assuming Docker socket mapping is standard
+      network_mode: 'bridge'
+      execution_timeout: 1800 # 30 minutes
+      # Dependencies are implicit for single-task DAGs
