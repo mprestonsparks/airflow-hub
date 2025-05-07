@@ -13,15 +13,20 @@ default_args = {
 }
 
 with DAG(
-    dag_id='nightly_todo_cleanup',
+    dag_id='nightly_test_improve',
     default_args=default_args,
     start_date=days_ago(1),
     schedule_interval='@daily',
     catchup=False,
-    tags=['maintenance', 'todo'],
+    tags=['maintenance', 'test'],
 ) as dag:
-    run_todo_cleanup = SSHOperator(
-        task_id='run_todo_cleanup',
+    run_cov = SSHOperator(
+        task_id='run_cov',
         ssh_conn_id='indexagent_ssh',
-        command='/opt/indexagent/scripts/maintenance/agent_fix_todos.sh',
+        command='/opt/indexagent/scripts/run_cov.py',
+    )
+    ai_test_loop = SSHOperator(
+        task_id='ai_test_loop',
+        ssh_conn_id='indexagent_ssh',
+        command='/opt/indexagent/scripts/testing/ai_test_loop.sh',
     )
