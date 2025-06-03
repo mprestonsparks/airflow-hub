@@ -1,0 +1,107 @@
+{
+  "name": "Airflow Hub Development Environment",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "args": {
+      "AIRFLOW_VERSION": "3.0.0"
+    }
+  },
+  "runArgs": [
+    "--init",
+    "--privileged"
+  ],
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/data,target=/data,type=bind,consistency=cached",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/logs,target=/logs,type=bind,consistency=cached"
+  ],
+  "remoteUser": "airflow",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "enableNonRootDocker": "true"
+    },
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
+        "charliermarsh.ruff",
+        "ms-azuretools.vscode-docker",
+        "ms-vscode.makefile-tools",
+        "ms-python.pytest",
+        "ms-vscode.vscode-json",
+        "redhat.vscode-yaml",
+        "ms-vscode.vscode-markdown"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/home/airflow/.local/bin/python",
+        "python.terminal.activateEnvironment": false,
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": false,
+        "python.formatting.provider": "none",
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.black-formatter",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+          }
+        },
+        "black-formatter.args": [
+          "--line-length=100"
+        ],
+        "files.watcherExclude": {
+          "**/logs/**": true,
+          "**/__pycache__/**": true,
+          "**/.pytest_cache/**": true
+        },
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "forwardPorts": [
+    8080,
+    5432,
+    8200
+  ],
+  "portsAttributes": {
+    "8080": {
+      "label": "Airflow Webserver",
+      "onAutoForward": "notify"
+    },
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "silent"
+    },
+    "8200": {
+      "label": "Vault",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postStartCommand": "bash .devcontainer/post-start.sh",
+  "remoteEnv": {
+    "AIRFLOW_HOME": "/workspaces/airflow-hub",
+    "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN": "postgresql+psycopg2://airflow:airflow@host.docker.internal:5432/airflow",
+    "AIRFLOW__CORE__EXECUTOR": "LocalExecutor",
+    "AIRFLOW__CORE__LOAD_EXAMPLES": "false",
+    "AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION": "true",
+    "AIRFLOW__WEBSERVER__EXPOSE_CONFIG": "true",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONUNBUFFERED": "1"
+  },
+  "containerEnv": {
+    "AIRFLOW_DEV_CONTAINER": "true"
+  },
+  "workspaceFolder": "/workspaces/airflow-hub",
+  "shutdownAction": "stopContainer"
+}

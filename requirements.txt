@@ -1,12 +1,12 @@
 # Core Airflow dependencies
-apache-airflow==2.6.1
-apache-airflow-providers-snowflake==4.0.2
-apache-airflow-providers-docker==3.5.0
-apache-airflow-providers-apache-spark==4.0.0
-apache-airflow-providers-http==4.1.0
+apache-airflow==3.0.0
+apache-airflow-providers-snowflake==6.3.1
+apache-airflow-providers-docker==4.3.1
+apache-airflow-providers-apache-spark==4.11.3
+apache-airflow-providers-http==4.13.3
 
 # Common data processing libraries
-pandas==2.2.2
+pandas==2.1.4
 numpy==1.26.4
 scikit-learn==1.4.2
 
@@ -15,16 +15,15 @@ pymysql
 psycopg2-binary
 
 # API integrations
-requests==2.28.2
-httpx==0.23.3
-# Pin pendulum to v2 for Airflow compatibility
-pendulum==2.1.2
+requests>=2.31.0
+httpx>=0.25.0
+# pendulum is included with Airflow 3.0 base image; do not override
 
 # Testing libraries
 pytest==7.3.1
 pytest-mock==3.10.0
 # Airflow 3.0 uses Pydantic v2 internally; pin to a compatible v2 release
-pydantic==2.6.4
+pydantic>=2.11.0
 
 # If using specific Airflow features like KubernetesExecutor or celery,
 # uncomment the relevant lines below:

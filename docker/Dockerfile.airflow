@@ -1,17 +1,15 @@
 FROM apache/airflow:3.0.0
+ARG AIRFLOW_PORT
+ENV AIRFLOW_PORT=${AIRFLOW_PORT}
+EXPOSE ${AIRFLOW_PORT}
 
-USER root
-
-# Base image already contains the necessary runtime libraries for Airflow 3.0,
-# so we can skip additional system-package installation to avoid GPG signature
-# issues in some environments.
+USER airflow
 
 # Copy requirements file
 COPY requirements.txt /requirements.txt
 
 # Upgrade pip and install Python dependencies
-RUN echo "==> Installing project dependencies..." \
-    && pip install --no-cache-dir -r /requirements.txt -vvv
+RUN pip install --no-cache-dir -r /requirements.txt -vvv
 
 # Copy DAGs and plugins
 COPY dags/ ${AIRFLOW_HOME}/dags/
