@@ -6,6 +6,8 @@ from airflow.hooks.base import BaseHook
 import logging
 import pandas as pd
 from datetime import datetime, timedelta
+from typing import Optional, Dict, Any, List
+import os
 
 
 class IBKRHook(BaseHook):
@@ -47,20 +49,48 @@ class IBKRHook(BaseHook):
         """
         Get an IBKR API client connection.
         
-        In a real implementation, this would create and return an actual IBKR API client.
-        For this example, we'll return a mock client.
+        Returns real or mock client based on configuration.
         
         Returns:
             object: IBKR API client.
         """
         self.log.info(f"Connecting to IBKR API at {self.api_url}:{self.port}")
         
-        # In a real implementation, this would use the IBKR API
-        # For example:
-        # from ibapi.client import EClient
-        # from ibapi.wrapper import EWrapper
-        # class IBClient(EClient, EWrapper):
-        #     def __init__(self):
+        # Check if we should use real or mock client
+        use_mock = self.extras.get('use_mock', True)
+        
+        if use_mock:
+            # Use mock client for testing
+            self.log.info("Using mock IBKR client")
+            return MockIBKRClient(
+                api_url=self.api_url,
+                port=self.port,
+                api_key=self.api_key,
+                account_id=self.account_id,
+                client_id=self.client_id,
+                read_only=self.read_only
+            )
+        else:
+            # Use real IBKR client
+            try:
+                from project_trading.hooks.ibkr_api_client import RealIBKRClient
+                self.log.info("Using real IBKR client")
+                return RealIBKRClient(
+                    host=self.api_url,
+                    port=self.port,
+                    client_id=self.client_id,
+                    account=self.account_id
+                )
+            except ImportError as e:
+                self.log.warning(f"Real IBKR client not available: {e}. Falling back to mock.")
+                return MockIBKRClient(
+                    api_url=self.api_url,
+                    port=self.port,
+                    api_key=self.api_key,
+                    account_id=self.account_id,
+                    client_id=self.client_id,
+                    read_only=self.read_only
+                )
         #         EClient.__init__(self, self)
         #         # Initialize client properties
         #

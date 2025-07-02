@@ -1,0 +1,11 @@
+# DEAN System Airflow Requirements
+# These packages are needed for DEAN DAGs
+
+# Already installed in base Airflow, but listed for clarity
+requests>=2.25.0
+psycopg2-binary>=2.8.0
+redis>=3.5.0
+
+# Potential additional packages for DEAN
+pydantic>=1.8.0
+httpx>=0.23.0

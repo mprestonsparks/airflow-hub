@@ -1,0 +1,61 @@
+# DEAN Project Configuration
+# This file defines DEAN-specific configuration for Airflow DAGs
+
+project:
+  name: dean
+  description: "Distributed Evolutionary Agent Network orchestration"
+  version: "1.0.0"
+  
+# Required Airflow connections
+connections:
+  - name: dean_api_default
+    type: HTTP
+    description: "DEAN Agent Evolution API"
+    example:
+      host: "dean-agent-evolution"
+      port: 8000
+      schema: "http"
+      
+  - name: indexagent_ssh
+    type: SSH
+    description: "SSH connection to IndexAgent service"
+    example:
+      host: "indexagent"
+      login: "airflow"
+      
+# Required Airflow variables
+variables:
+  - name: DEAN_AGENT_EVOLUTION_PATH
+    description: "Path to agent evolution module"
+    default: "/opt/agent-evolution"
+    
+  - name: DEAN_MAX_CONCURRENT_AGENTS
+    description: "Maximum number of concurrent agents"
+    default: 8
+    type: integer
+    
+  - name: DEAN_TOKEN_BUDGET_GLOBAL
+    description: "Global token budget for all agents"
+    default: 100000
+    type: integer
+    
+  - name: DEAN_MIN_DIVERSITY
+    description: "Minimum diversity threshold"
+    default: 0.3
+    type: float
+    
+# External dependencies
+dependencies:
+  python_packages:
+    - "dean-contracts>=1.0.0"  # If published as package
+    
+  system_paths:
+    - "/opt/agent-evolution"  # Required if not using package
+    
+# DAG defaults
+dag_defaults:
+  owner: "dean-system"
+  email: ["dean-admin@example.com"]
+  tags: ["dean", "evolution", "agents"]
+  max_active_runs: 1
+  catchup: false
